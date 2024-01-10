@@ -1,25 +1,23 @@
 import { type NextRequest, type NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getCookie, setCookie } from "cookies-next";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
 // server component can only get cookies and not set them, hence the "component" check
 export function createSupabaseServerClient(component: boolean = false) {
+  const cookieStore = cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookies().get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
+        setAll(cookiesToSet) {
           if (component) return;
-          cookies().set(name, value, options);
-        },
-        remove(name: string, options: CookieOptions) {
-          if (component) return;
-          cookies().set(name, "", options);
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
         },
       },
     }
@@ -27,6 +25,7 @@ export function createSupabaseServerClient(component: boolean = false) {
 }
 
 export function createSupabaseServerComponentClient() {
+  cookies().getAll();
   return createSupabaseServerClient(true);
 }
 
@@ -34,19 +33,19 @@ export function createSupabaseReqResClient(
   req: NextRequest,
   res: NextResponse
 ) {
+  cookies().getAll();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return getCookie(name, { req, res });
+        getAll() {
+          return req.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          setCookie(name, value, { req, res, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          setCookie(name, "", { req, res, ...options });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options)
+          );
         },
       },
     }
